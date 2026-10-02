@@ -10,6 +10,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: lab8-lab
+    init: true
     working_dir: /workspace
     ports:
       - "127.0.0.1:8888:8888"
@@ -19,6 +20,18 @@ services:
       - ./scripts:/workspace/scripts
       - ./sql:/workspace/sql
       - ./docs:/workspace/docs
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8888/lab', timeout=2)
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     restart: unless-stopped
 
   metabase:
@@ -26,13 +39,22 @@ services:
       context: .
       dockerfile: metabase.Dockerfile
     container_name: lab8-metabase
+    init: true
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
       - metabase-data:/home/metabase/data
       - ./data:/workspace/data
     environment:
-      - MB_DB_FILE=/home/metabase/data/metabase.db
+      MB_DB_FILE: /home/metabase/data/metabase.db
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
     restart: unless-stopped
 
 volumes:

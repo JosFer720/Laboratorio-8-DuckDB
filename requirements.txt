@@ -1,4 +1,5 @@
 # CC3084 - Lab 8: DuckDB
+# Dependencias fijadas para que cada construccion use el mismo ambiente.
 # duckdb debe mantenerse en la misma version que el driver de DuckDB
 # instalado en Metabase (ver metabase.Dockerfile).
 duckdb==1.5.5
