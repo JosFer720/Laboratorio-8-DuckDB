@@ -1,0 +1,25 @@
+grupo,forma_pago,pct
+yellow 2024,Efectivo,13.46
+yellow 2024,Flexible / no registrado,9.94
+yellow 2024,Otro,2.64
+yellow 2024,Tarjeta,73.97
+yellow 2025,Efectivo,9.55
+yellow 2025,Flexible / no registrado,23.83
+yellow 2025,Otro,2.88
+yellow 2025,Tarjeta,63.74
+yellow 2026,Efectivo,9.12
+yellow 2026,Flexible / no registrado,25.98
+yellow 2026,Otro,1.14
+yellow 2026,Tarjeta,63.77
+green 2024,Efectivo,26.51
+green 2024,Flexible / no registrado,3.68
+green 2024,Otro,0.94
+green 2024,Tarjeta,68.87
+green 2025,Efectivo,21.95
+green 2025,Flexible / no registrado,8.43
+green 2025,Otro,0.85
+green 2025,Tarjeta,68.76
+green 2026,Efectivo,19.55
+green 2026,Flexible / no registrado,14.47
+green 2026,Otro,0.72
+green 2026,Tarjeta,65.25

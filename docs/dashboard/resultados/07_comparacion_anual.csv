@@ -1,0 +1,7 @@
+tipo,anio,meses,viajes,cambio_viajes_pct,tarifa_promedio_usd,distancia_promedio_millas,duracion_promedio_min,propina_pct_tarifa_tarjeta
+yellow,2024,1-8,26388179,,19.54,3.42,17.1,22.0
+yellow,2025,1-8,31556438,19.6,19.58,3.45,16.9,22.2
+yellow,2026,1-8,29703355,-5.9,21.3,3.52,17.9,21.5
+green,2024,1-8,443415,,17.88,2.93,19.2,19.5
+green,2025,1-8,397918,-10.3,18.02,3.11,21.3,19.6
+green,2026,1-8,337114,-15.3,17.16,3.31,21.1,20.9

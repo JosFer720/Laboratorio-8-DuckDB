@@ -1,0 +1,15 @@
+rango_millas,tipo,pct_viajes
+1. 0-1,yellow,21.29
+1. 0-1,green,14.93
+2. 1-2,yellow,31.67
+2. 1-2,green,33.96
+3. 2-3,yellow,16.05
+3. 2-3,green,19.95
+4. 3-5,yellow,12.54
+4. 3-5,green,15.36
+5. 5-10,yellow,10.46
+5. 5-10,green,11.3
+6. 10-20,yellow,7.07
+6. 10-20,green,4.05
+7. 20+,yellow,0.93
+7. 20+,green,0.47
