@@ -94,6 +94,31 @@ class DatabaseTests(unittest.TestCase):
         self.assertFalse(salida.exists())
         self.assertFalse(salida.with_name(salida.name + ".tmp").exists())
 
+    def test_zone_lookup_becomes_zones_table(self):
+        csv = self.raw / "zones" / "taxi_zone_lookup.csv"
+        csv.parent.mkdir(parents=True)
+        csv.write_text(
+            '"LocationID","Borough","Zone","service_zone"\n'
+            '1,"EWR","Newark Airport","EWR"\n'
+            '132,"Queens","JFK Airport","Airports"\n'
+        )
+        salida = Path(self._tmp.name) / "taxi.duckdb"
+        create_database.construir(salida)
+
+        con = duckdb.connect(str(salida), read_only=True)
+        filas = con.execute("SELECT location_id, borough, zone FROM zones ORDER BY 1").fetchall()
+        con.close()
+        self.assertEqual(filas, [(1, "EWR", "Newark Airport"), (132, "Queens", "JFK Airport")])
+
+    def test_database_without_zone_lookup_has_only_trips(self):
+        salida = Path(self._tmp.name) / "taxi.duckdb"
+        create_database.construir(salida)
+
+        con = duckdb.connect(str(salida), read_only=True)
+        tablas = {fila[0] for fila in con.execute("SHOW TABLES").fetchall()}
+        con.close()
+        self.assertEqual(tablas, {"trips"})
+
     def test_parquet_view_matches_the_table(self):
         con = duckdb.connect()
         con.execute(f"CREATE VIEW trips AS {create_database.select_viajes()}")

@@ -11,11 +11,12 @@ Fuente oficial de los datos:
 Uso:
     python scripts/download_data.py                             # todos los anios
     python scripts/download_data.py --year 2026                 # un anio
-    python scripts/download_data.py --year 2024 --year 2026     # varios anios
+    python scripts/download_data.py --year 2024 --year 2025     # varios anios
     python scripts/download_data.py --year 2024 --taxi yellow
 
 Los archivos se guardan en:
     data/raw/<tipo>/<anio>/<nombre-original>.parquet
+    data/raw/zones/taxi_zone_lookup.csv   (catalogo de zonas de la TLC)
 
 Comportamiento:
   - La TLC publica cada mes con varias semanas de atraso, por lo que no todos
@@ -34,9 +35,10 @@ from pathlib import Path
 
 import requests
 
-ANIOS_PERMITIDOS = (2024, 2026)
+ANIOS_PERMITIDOS = (2024, 2025, 2026)
 TIPOS_TAXI = ("yellow", "green")
 URL_BASE = "https://d37ci6vzurychx.cloudfront.net/trip-data"
+URL_ZONAS = "https://d37ci6vzurychx.cloudfront.net/misc/taxi_zone_lookup.csv"
 DIR_DESTINO = Path("data/raw")
 
 TIEMPO_ESPERA = 60          # segundos por peticion
@@ -168,6 +170,26 @@ def descargar(tipo: str, anio: int) -> dict:
     return resumen
 
 
+def descargar_zonas() -> dict:
+    """Descarga el catalogo de zonas (LocationID -> Borough, Zone) si no existe."""
+    print("\n=== ZONAS ===")
+    resumen = {"descargados": 0, "omitidos": 0, "no_publicados": [], "fallidos": []}
+    destino = DIR_DESTINO / "zones" / "taxi_zone_lookup.csv"
+    if destino.exists() and destino.stat().st_size > 0:
+        print("  taxi_zone_lookup.csv  ya existe, se omite")
+        resumen["omitidos"] += 1
+        return resumen
+    try:
+        escritos = descargar_archivo(URL_ZONAS, destino)
+    except (requests.RequestException, OSError) as error:
+        print(f"  taxi_zone_lookup.csv  ERROR: {error}")
+        resumen["fallidos"].append("taxi_zone_lookup.csv")
+    else:
+        print(f"  taxi_zone_lookup.csv  listo ({formato_tamanio(escritos)}) -> {destino}")
+        resumen["descargados"] += 1
+    return resumen
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Descarga los datos de taxis del NYC TLC."
@@ -195,6 +217,11 @@ def main() -> int:
             total["omitidos"] += resumen["omitidos"]
             total["no_publicados"] += [f"{tipo} {m}" for m in resumen["no_publicados"]]
             total["fallidos"] += [f"{tipo} {m}" for m in resumen["fallidos"]]
+
+    zonas = descargar_zonas()
+    total["descargados"] += zonas["descargados"]
+    total["omitidos"] += zonas["omitidos"]
+    total["fallidos"] += zonas["fallidos"]
 
     print("\n" + "=" * 60)
     print("RESUMEN")

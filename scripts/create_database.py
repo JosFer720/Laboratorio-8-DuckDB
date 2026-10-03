@@ -2,7 +2,9 @@
 """Materializa los Parquet descargados en una base DuckDB.
 
 Lee sql/create_tables.sql y lo ejecuta sobre los archivos de data/raw/,
-generando data/processed/taxi.duckdb con la tabla `trips`.
+generando data/processed/taxi.duckdb con la tabla `trips`. Si ya se descargo
+el catalogo de zonas (data/raw/zones/taxi_zone_lookup.csv), sql/create_zones.sql
+agrega ademas la tabla `zones`.
 
 Uso (desde la raiz del proyecto):
     python scripts/create_database.py                       # todos los anios descargados
@@ -28,6 +30,7 @@ import duckdb
 DIR_RAW = Path("data/raw")
 BASE_POR_DEFECTO = Path("data/processed/taxi.duckdb")
 ARCHIVO_SQL = Path("sql/create_tables.sql")
+ARCHIVO_SQL_ZONAS = Path("sql/create_zones.sql")
 TIPOS_TAXI = ("yellow", "green")
 
 
@@ -63,6 +66,16 @@ def select_viajes(anios=None) -> str:
     return cuerpo.strip().rstrip(";")
 
 
+def archivo_zonas() -> Path:
+    return DIR_RAW / "zones" / "taxi_zone_lookup.csv"
+
+
+def sentencia_zonas() -> str:
+    """Sentencia CREATE TABLE zones de sql/create_zones.sql con la ruta del CSV."""
+    texto = Template(ARCHIVO_SQL_ZONAS.read_text(encoding="utf-8"))
+    return texto.substitute(zones_file=literal_lista([archivo_zonas().as_posix()]))
+
+
 def validar_archivos(anios=None) -> None:
     """Falla con un mensaje claro si no hay Parquet para algun tipo de taxi."""
     for tipo in TIPOS_TAXI:
@@ -85,6 +98,9 @@ def construir(salida: Path, anios=None) -> None:
         try:
             con.execute(sentencia_create(anios))
             filas = con.execute("SELECT count(*) FROM trips").fetchone()[0]
+            zonas = archivo_zonas().exists()
+            if zonas:
+                con.execute(sentencia_zonas())
         finally:
             con.close()
         temporal.replace(salida)
@@ -97,6 +113,8 @@ def construir(salida: Path, anios=None) -> None:
     print(f"  filas en trips : {filas:,}")
     print(f"  tamano         : {salida.stat().st_size / 1024 ** 2:,.1f} MiB")
     print(f"  tiempo         : {segundos:,.1f} s")
+    if not zonas:
+        print("  (sin tabla zones: ejecute scripts/download_data.py para obtener el catalogo)")
 
     con = duckdb.connect(str(salida), read_only=True)
     try:

@@ -31,6 +31,15 @@ class FakeResponse:
 
 
 class CommandLineTests(unittest.TestCase):
+    def setUp(self):
+        patcher = patch.object(
+            download_data,
+            "descargar_zonas",
+            return_value={"descargados": 0, "omitidos": 1, "no_publicados": [], "fallidos": []},
+        )
+        self.descargar_zonas = patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_year_2026_downloads_yellow_and_green(self):
         empty_summary = {
             "descargados": 0,
@@ -58,13 +67,17 @@ class CommandLineTests(unittest.TestCase):
         with patch.object(sys, "argv", ["download_data.py"]), patch.object(
             download_data,
             "descargar",
-            side_effect=[dict(empty_summary) for _ in range(4)],
+            side_effect=[dict(empty_summary) for _ in range(6)],
         ) as descargar:
             self.assertEqual(download_data.main(), 0)
 
         self.assertEqual(
             [call.args for call in descargar.call_args_list],
-            [("yellow", 2024), ("green", 2024), ("yellow", 2026), ("green", 2026)],
+            [
+                ("yellow", 2024), ("green", 2024),
+                ("yellow", 2025), ("green", 2025),
+                ("yellow", 2026), ("green", 2026),
+            ],
         )
 
     def test_year_can_be_repeated(self):
@@ -111,6 +124,16 @@ class CommandLineTests(unittest.TestCase):
             download_data, "descargar", side_effect=[failed_summary, empty_summary]
         ):
             self.assertEqual(download_data.main(), 1)
+
+
+    def test_zone_lookup_is_downloaded_once_per_run(self):
+        empty_summary = {"descargados": 0, "omitidos": 0, "no_publicados": [], "fallidos": []}
+        with patch.object(sys, "argv", ["download_data.py", "--year", "2025"]), patch.object(
+            download_data, "descargar", side_effect=[dict(empty_summary), dict(empty_summary)]
+        ):
+            self.assertEqual(download_data.main(), 0)
+
+        self.descargar_zonas.assert_called_once_with()
 
 
 class PathsTests(unittest.TestCase):
@@ -216,6 +239,36 @@ class DownloadTests(unittest.TestCase):
 
         self.assertEqual(summary["fallidos"], ["2026-01"])
         self.assertEqual(len(summary["no_publicados"]), 11)
+
+
+class ZoneLookupTests(unittest.TestCase):
+    def test_existing_zone_lookup_is_not_downloaded_again(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            existing = root / "zones" / "taxi_zone_lookup.csv"
+            existing.parent.mkdir(parents=True)
+            existing.write_text("LocationID,Borough,Zone,service_zone\n")
+
+            with patch.object(download_data, "DIR_DESTINO", root), patch.object(
+                download_data, "descargar_archivo"
+            ) as descargar_archivo:
+                summary = download_data.descargar_zonas()
+
+            self.assertEqual(summary["omitidos"], 1)
+            descargar_archivo.assert_not_called()
+
+    def test_missing_zone_lookup_is_downloaded_to_zones_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch.object(download_data, "DIR_DESTINO", root), patch.object(
+                download_data, "descargar_archivo", return_value=100
+            ) as descargar_archivo:
+                summary = download_data.descargar_zonas()
+
+            self.assertEqual(summary["descargados"], 1)
+            descargar_archivo.assert_called_once_with(
+                download_data.URL_ZONAS, root / "zones" / "taxi_zone_lookup.csv"
+            )
 
 
 if __name__ == "__main__":
