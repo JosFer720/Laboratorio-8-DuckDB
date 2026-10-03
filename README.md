@@ -55,6 +55,19 @@ duckdb/
 +-- README.md
 ```
 
+Cada directorio separa una responsabilidad del flujo:
+
+- `data/raw/`: archivos Parquet originales descargados de la NYC TLC,
+  organizados por tipo de taxi y anio. No se modifican ni se versionan.
+- `data/processed/`: artefactos derivados y bases DuckDB materializadas. Se
+  pueden regenerar a partir de los datos originales y tampoco se versionan.
+- `notebooks/`: analisis interactivos y visualizaciones en Jupyter.
+- `scripts/`: programas reproducibles para descargar, validar y transformar
+  datos.
+- `sql/`: consultas DuckDB versionadas, incluidas las exploraciones directas
+  sobre Parquet.
+- `docs/`: resultados, evidencia y documentacion complementaria.
+
 ## Requisitos
 
 - Docker, con Docker Compose
@@ -119,15 +132,91 @@ generar los resultados principales.
 
 ## Como levantar el ambiente
 
-<!-- TODO (Ejercicio 1.5) -->
+Desde la raiz del repositorio, construya e inicie JupyterLab y Metabase:
+
+```bash
+docker compose up --build -d
+docker compose ps
+```
+
+Cuando ambos servicios aparezcan como `healthy`, abra:
+
+- JupyterLab: <http://localhost:8888/lab>
+- Metabase: <http://localhost:3000>
+
+Los puertos solo se publican en `127.0.0.1`; esta configuracion sin token de
+Jupyter esta pensada exclusivamente para desarrollo local. No exponga estos
+servicios directamente a Internet.
+
+Puede comprobar las herramientas instaladas con:
+
+```bash
+docker compose exec lab python --version
+docker compose exec lab python -c "import duckdb, jupyterlab; print('DuckDB', duckdb.__version__); print('JupyterLab', jupyterlab.__version__)"
+```
+
+Las carpetas `data/`, `notebooks/`, `scripts/`, `sql/` y `docs/` se montan bajo
+`/workspace` dentro del contenedor `lab`. Por eso, los cambios y archivos
+descargados quedan disponibles tanto en el host como en Docker. Para detener
+los servicios sin borrar datos:
+
+```bash
+docker compose down
+```
+
+Metabase conserva su configuracion en el volumen `metabase-data`. Cuando
+exista `data/processed/taxi.duckdb`, registre en Metabase una base DuckDB cuya
+ruta sea `/workspace/data/processed/taxi.duckdb`. Evite que Metabase y otro
+proceso escriban simultaneamente en el mismo archivo.
 
 ## Como descargar los datos
 
-<!-- TODO (Ejercicios 2.6, 5.1 y 8.1) -->
+Con los servicios iniciados, ejecute la descarga dentro del ambiente
+reproducible:
+
+```bash
+docker compose exec lab python scripts/download_data.py --year 2026
+```
+
+Si instaló localmente las mismas dependencias de `requirements.txt`, el comando
+equivalente es:
+
+```bash
+python scripts/download_data.py --year 2026
+```
+
+El script descarga Yellow Taxi y Green Taxi en
+`data/raw/<tipo>/2026/`. Los meses que todavia no haya publicado la TLC se
+reportan y se omiten. Si un archivo no vacio ya existe, una nueva ejecucion lo
+conserva y no vuelve a descargarlo; esto permite actualizar el conjunto de
+datos incrementalmente.
 
 ## Como ejecutar el analisis
 
-<!-- TODO -->
+Las consultas iniciales estan en `sql/exploration.sql` y leen los archivos
+Parquet directamente, sin importarlos antes a una base persistente. Ejecute
+todo el archivo desde la raiz del proyecto con DuckDB para Python:
+
+```bash
+docker compose exec -T lab python -c "from pathlib import Path; import duckdb; con=duckdb.connect(); sql=Path('sql/exploration.sql').read_text(encoding='utf-8'); [print(con.execute(query).fetchdf().to_string(index=False)) for query in sql.split(';') if query.strip()]"
+```
+
+Tambien puede abrir `sql/exploration.sql` desde JupyterLab y ejecutar sus
+consultas individualmente con `duckdb.sql(...)`. Las rutas relativas funcionan
+porque el directorio de trabajo del contenedor es `/workspace`.
+
+Antes de consultar, confirme que existen archivos en ambas rutas:
+
+```text
+data/raw/yellow/2026/*.parquet
+data/raw/green/2026/*.parquet
+```
+
+La exploracion revisa archivos disponibles, volumen de registros, esquema,
+muestras y problemas iniciales de calidad como nulos, distancias cero, montos
+negativos, duraciones invalidas y valores atipicos. Los resultados observados
+para los meses disponibles estan documentados en
+[`docs/data_quality_2026.md`](docs/data_quality_2026.md).
 
 ## Como reproducir los benchmarks
 
@@ -136,3 +225,14 @@ generar los resultados principales.
 ## Como generar los resultados principales
 
 <!-- TODO -->
+
+## Por que usar un ambiente reproducible
+
+Docker fija la version de Python y `requirements.txt` fija las versiones de
+DuckDB, JupyterLab y las bibliotecas de analisis. De esta forma, cada integrante
+y el evaluador ejecutan el mismo software, con las mismas rutas internas y sin
+depender de paquetes instalados globalmente en su computadora. Los datos se
+mantienen fuera de Git, pero los scripts y consultas necesarios para volver a
+obtener y analizar esos datos si se versionan. Esta separacion facilita repetir
+los resultados, diagnosticar diferencias y actualizar el flujo cuando la TLC
+publique nuevos meses.
