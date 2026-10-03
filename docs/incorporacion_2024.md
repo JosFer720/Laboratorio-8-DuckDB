@@ -62,3 +62,8 @@ especial.
   viajes, que a veces son erroneas.
 - **Lectura con `union_by_name`**: tolera columnas que aparezcan o desaparezcan
   entre anios.
+
+> **Nota (al incorporar 2025):** con los tres anios, `parquet_schema()` muestra
+> que `cbd_congestion_fee` aparece en enero de 2025 y `request_source` en junio de
+> 2026; ver [`incorporacion_2025.md`](incorporacion_2025.md) y
+> [`data_quality.md`](data_quality.md).
