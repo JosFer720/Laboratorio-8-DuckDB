@@ -61,11 +61,11 @@ ORDER BY viajes DESC, pu_location_id
 LIMIT 10;
 
 -- @query q7_percentiles | Percentiles de la tarifa por tipo de taxi (viajes validos)
+-- Una sola llamada con lista de percentiles: tres quantile_cont separados
+-- guardan tres copias de los valores y no caben en memoria con los tres anios.
 SELECT
     taxi_type,
-    quantile_cont(fare_amount, 0.5) AS mediana,
-    quantile_cont(fare_amount, 0.95) AS p95,
-    quantile_cont(fare_amount, 0.99) AS p99
+    quantile_cont(fare_amount, [0.5, 0.95, 0.99]) AS percentiles_50_95_99
 FROM trips
 WHERE fare_amount > 0 AND fare_amount < 1000
 GROUP BY taxi_type

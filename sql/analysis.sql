@@ -16,10 +16,13 @@
 -- de miles de millas, tarifas negativas, duraciones negativas) son errores de
 -- captura, reembolsos o cancelaciones que distorsionan cualquier promedio.
 --
--- Comparabilidad entre anios: 2024 tiene 12 meses y 2026 solo los meses que
--- la TLC ya publico (enero a agosto). Las comparaciones anuales usan
--- month <= 8, o se expresan como proporciones, para no comparar un anio
--- completo contra uno parcial. Las consultas sin esta restriccion lo indican.
+-- Comparabilidad entre anios: 2024 y 2025 tienen 12 meses y 2026 solo los
+-- meses que la TLC ya publico. Las comparaciones anuales se limitan a los
+-- "meses comunes": los meses presentes en TODOS los anios descargados, que se
+-- calculan a partir de los datos (no con un mes fijo), o se expresan como
+-- proporciones, para no comparar un anio completo contra uno parcial. Asi las
+-- consultas siguen siendo validas cuando la TLC publica meses nuevos o se
+-- agrega otro anio. Las consultas sin esta restriccion lo indican.
 
 -- ===========================================================================
 -- P1. Cuantos viajes se realizan por mes?
@@ -34,13 +37,24 @@ FROM trips
 GROUP BY taxi_type, year, month
 ORDER BY taxi_type, year, month;
 
--- Comparacion anual homogenea (enero a agosto en ambos anios).
+-- Comparacion anual homogenea (solo los meses comunes a todos los anios),
+-- con el cambio porcentual respecto del anio anterior.
+WITH meses_comunes AS (
+    SELECT month
+    FROM trips
+    GROUP BY month
+    HAVING count(DISTINCT year) = (SELECT count(DISTINCT year) FROM trips)
+)
 SELECT
     taxi_type,
     year,
-    count(*) AS viajes_ene_ago
+    min(month) AS mes_inicial,
+    max(month) AS mes_final,
+    count(*) AS viajes_meses_comunes,
+    round(100.0 * (count(*) / lag(count(*)) OVER (PARTITION BY taxi_type ORDER BY year) - 1), 1)
+        AS cambio_vs_anio_anterior_pct
 FROM trips
-WHERE month <= 8
+WHERE month IN (SELECT month FROM meses_comunes)
 GROUP BY taxi_type, year
 ORDER BY taxi_type, year;
 
@@ -170,17 +184,28 @@ ORDER BY taxi_type, year;
 
 -- Distribucion de la tarifa de viajes validos: la cola larga explica por que
 -- la mediana y el promedio difieren.
+-- Los percentiles se piden en UNA llamada con una lista: cada quantile_cont
+-- guarda en memoria todos los valores de su grupo, y seis llamadas separadas
+-- (la version original) necesitaban seis copias. Con 2024+2026 (72 M de filas)
+-- cabia en memoria; al agregar 2025 (121 M) el proceso se quedaba sin memoria
+-- en un contenedor de 8 GB.
+WITH percentiles AS (
+    SELECT
+        taxi_type,
+        quantile_cont(fare_amount, [0.05, 0.25, 0.50, 0.75, 0.95, 0.99]) AS p
+    FROM trips
+    WHERE fare_amount > 0 AND fare_amount < 1000
+    GROUP BY taxi_type
+)
 SELECT
     taxi_type,
-    round(quantile_cont(fare_amount, 0.05), 2) AS p05,
-    round(quantile_cont(fare_amount, 0.25), 2) AS p25,
-    round(quantile_cont(fare_amount, 0.50), 2) AS p50,
-    round(quantile_cont(fare_amount, 0.75), 2) AS p75,
-    round(quantile_cont(fare_amount, 0.95), 2) AS p95,
-    round(quantile_cont(fare_amount, 0.99), 2) AS p99
-FROM trips
-WHERE fare_amount > 0 AND fare_amount < 1000
-GROUP BY taxi_type
+    round(p[1], 2) AS p05,
+    round(p[2], 2) AS p25,
+    round(p[3], 2) AS p50,
+    round(p[4], 2) AS p75,
+    round(p[5], 2) AS p95,
+    round(p[6], 2) AS p99
+FROM percentiles
 ORDER BY taxi_type;
 
 -- Duraciones no positivas en yellow por mes: localiza cuando aparecen.
@@ -195,21 +220,23 @@ WHERE taxi_type = 'yellow'
 GROUP BY year, month
 ORDER BY year, month;
 
--- Origen del salto de 2026: duraciones no positivas por proveedor (vendor_id).
--- Un proveedor concentra todos los casos, por lo que es un problema de captura
--- de ese proveedor y no un cambio real en los viajes.
+-- Origen del salto: duraciones no positivas por anio y proveedor (vendor_id).
+-- Un proveedor (7, que aparece a fines de 2024) concentra casi todos los casos
+-- de 2025 y 2026, por lo que es un problema de captura de ese proveedor y no un
+-- cambio real en los viajes.
 SELECT
+    year,
     vendor_id,
     count(*) AS viajes,
     count_if(duration_minutes <= 0) AS duracion_no_positiva,
     round(100.0 * count_if(duration_minutes <= 0) / count(*), 2) AS pct
 FROM trips
-WHERE taxi_type = 'yellow' AND year = 2026
-GROUP BY vendor_id
-ORDER BY vendor_id;
+WHERE taxi_type = 'yellow'
+GROUP BY year, vendor_id
+ORDER BY year, vendor_id;
 
 -- ===========================================================================
--- P8. Hallazgos de comparacion entre anios (enero a agosto)
+-- P8. Hallazgos de comparacion entre anios (meses comunes)
 -- ===========================================================================
 -- Propina y tarifa de viajes con tarjeta, para separar el efecto de la mezcla
 -- de formas de pago del efecto del precio.
@@ -223,7 +250,10 @@ SELECT
     round(100.0 * count_if(payment_type = 0 OR payment_type IS NULL) / count(*), 2)
         AS pct_pago_no_registrado
 FROM trips
-WHERE month <= 8
+WHERE month IN (
+        SELECT month FROM trips GROUP BY month
+        HAVING count(DISTINCT year) = (SELECT count(DISTINCT year) FROM trips)
+    )
   AND trip_distance > 0 AND trip_distance < 100
   AND fare_amount > 0 AND fare_amount < 1000
   AND duration_minutes > 0 AND duration_minutes < 1440
