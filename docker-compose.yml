@@ -20,6 +20,7 @@ services:
       - ./scripts:/workspace/scripts
       - ./sql:/workspace/sql
       - ./docs:/workspace/docs
+      - ./tests:/workspace/tests
     security_opt:
       - no-new-privileges:true
     healthcheck:

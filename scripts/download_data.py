@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
-"""Descarga los archivos Parquet de 2026 del NYC TLC Trip Record Data.
+"""Descarga los archivos Parquet del NYC TLC Trip Record Data.
 
 Descarga los registros de viajes de taxis amarillos (yellow) y verdes (green)
-correspondientes al anio 2026, que es el conjunto de datos inicial del
-laboratorio. Este script solo contempla el anio 2026.
+de los anios soportados (ver ANIOS_PERMITIDOS). Incorporar un anio nuevo solo
+requiere agregarlo a esa tupla: el resto del flujo no cambia.
 
 Fuente oficial de los datos:
     https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page
 
 Uso:
-    python scripts/download_data.py --year 2026                 # ambos tipos
-    python scripts/download_data.py --year 2026 --taxi yellow
-    python scripts/download_data.py --year 2026 --taxi green
+    python scripts/download_data.py                             # todos los anios
+    python scripts/download_data.py --year 2026                 # un anio
+    python scripts/download_data.py --year 2024 --year 2026     # varios anios
+    python scripts/download_data.py --year 2024 --taxi yellow
 
 Los archivos se guardan en:
     data/raw/<tipo>/<anio>/<nombre-original>.parquet
 
 Comportamiento:
   - La TLC publica cada mes con varias semanas de atraso, por lo que no todos
-    los meses de 2026 existen todavia. El script consulta al servidor que
+    los meses del anio en curso existen todavia. El script consulta al servidor que
     meses estan publicados en lugar de suponerlos.
   - Un archivo que ya existe localmente no se vuelve a descargar.
   - La descarga se hace sobre un nombre temporal y solo se renombra al
@@ -33,7 +34,7 @@ from pathlib import Path
 
 import requests
 
-ANIO_PERMITIDO = 2026
+ANIOS_PERMITIDOS = (2024, 2026)
 TIPOS_TAXI = ("yellow", "green")
 URL_BASE = "https://d37ci6vzurychx.cloudfront.net/trip-data"
 DIR_DESTINO = Path("data/raw")
@@ -47,7 +48,7 @@ def validar_parametros(tipo: str, anio: int, mes: int) -> None:
     """Rechaza valores que no pertenecen al conjunto de datos soportado."""
     if tipo not in TIPOS_TAXI:
         raise ValueError(f"tipo de taxi no permitido: {tipo!r}")
-    if anio != ANIO_PERMITIDO:
+    if anio not in ANIOS_PERMITIDOS:
         raise ValueError(f"anio no permitido: {anio!r}")
     if not 1 <= mes <= 12:
         raise ValueError(f"mes fuera de rango: {mes!r}")
@@ -128,7 +129,7 @@ def descargar_archivo(url: str, destino: Path) -> int:
 
 
 def descargar(tipo: str, anio: int) -> dict:
-    """Descarga todos los meses publicados de un tipo de taxi para 2026."""
+    """Descarga todos los meses publicados de un tipo de taxi y un anio."""
     validar_parametros(tipo, anio, 1)
     print(f"\n=== {tipo.upper()} {anio} ===")
     resumen = {"descargados": 0, "omitidos": 0, "no_publicados": [], "fallidos": []}
@@ -169,11 +170,12 @@ def descargar(tipo: str, anio: int) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description=f"Descarga los datos de taxis de {ANIO_PERMITIDO} del NYC TLC."
+        description="Descarga los datos de taxis del NYC TLC."
     )
     parser.add_argument(
-        "--year", type=int, choices=(ANIO_PERMITIDO,), default=ANIO_PERMITIDO,
-        help=f"anio a descargar (unicamente {ANIO_PERMITIDO})",
+        "--year", type=int, action="append", choices=ANIOS_PERMITIDOS,
+        help="anio a descargar; se puede repetir (por defecto: todos los "
+             f"soportados: {', '.join(map(str, ANIOS_PERMITIDOS))})",
     )
     parser.add_argument(
         "--taxi", choices=(*TIPOS_TAXI, "all"), default="all",
@@ -184,12 +186,15 @@ def main() -> int:
     tipos = TIPOS_TAXI if argumentos.taxi == "all" else (argumentos.taxi,)
 
     total = {"descargados": 0, "omitidos": 0, "no_publicados": [], "fallidos": []}
-    for tipo in tipos:
-        resumen = descargar(tipo, argumentos.year)
-        total["descargados"] += resumen["descargados"]
-        total["omitidos"] += resumen["omitidos"]
-        total["no_publicados"] += [f"{tipo} {m}" for m in resumen["no_publicados"]]
-        total["fallidos"] += [f"{tipo} {m}" for m in resumen["fallidos"]]
+    anios = sorted(set(argumentos.year or ANIOS_PERMITIDOS))
+
+    for anio in anios:
+        for tipo in tipos:
+            resumen = descargar(tipo, anio)
+            total["descargados"] += resumen["descargados"]
+            total["omitidos"] += resumen["omitidos"]
+            total["no_publicados"] += [f"{tipo} {m}" for m in resumen["no_publicados"]]
+            total["fallidos"] += [f"{tipo} {m}" for m in resumen["fallidos"]]
 
     print("\n" + "=" * 60)
     print("RESUMEN")

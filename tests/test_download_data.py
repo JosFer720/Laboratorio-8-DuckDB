@@ -48,8 +48,47 @@ class CommandLineTests(unittest.TestCase):
             [("yellow", 2026), ("green", 2026)],
         )
 
-    def test_rejects_any_year_other_than_2026(self):
-        with patch.object(sys, "argv", ["download_data.py", "--year", "2025"]):
+    def test_default_downloads_every_supported_year(self):
+        empty_summary = {
+            "descargados": 0,
+            "omitidos": 0,
+            "no_publicados": [],
+            "fallidos": [],
+        }
+        with patch.object(sys, "argv", ["download_data.py"]), patch.object(
+            download_data,
+            "descargar",
+            side_effect=[dict(empty_summary) for _ in range(4)],
+        ) as descargar:
+            self.assertEqual(download_data.main(), 0)
+
+        self.assertEqual(
+            [call.args for call in descargar.call_args_list],
+            [("yellow", 2024), ("green", 2024), ("yellow", 2026), ("green", 2026)],
+        )
+
+    def test_year_can_be_repeated(self):
+        empty_summary = {
+            "descargados": 0,
+            "omitidos": 0,
+            "no_publicados": [],
+            "fallidos": [],
+        }
+        argv = ["download_data.py", "--year", "2026", "--year", "2024", "--taxi", "green"]
+        with patch.object(sys, "argv", argv), patch.object(
+            download_data,
+            "descargar",
+            side_effect=[dict(empty_summary), dict(empty_summary)],
+        ) as descargar:
+            self.assertEqual(download_data.main(), 0)
+
+        self.assertEqual(
+            [call.args for call in descargar.call_args_list],
+            [("green", 2024), ("green", 2026)],
+        )
+
+    def test_rejects_unsupported_year(self):
+        with patch.object(sys, "argv", ["download_data.py", "--year", "2023"]):
             with self.assertRaises(SystemExit) as raised:
                 download_data.main()
 

@@ -1,6 +1,10 @@
--- Exploracion inicial de los viajes de taxi de 2026.
+-- Exploracion inicial de los viajes de taxi (todos los anios descargados).
 -- Ejecute este archivo desde la raiz del proyecto despues de descargar los
 -- datos. Las rutas son relativas a esa ubicacion.
+--
+-- Las rutas usan el comodin data/raw/<tipo>/*/*.parquet, de modo que cada anio
+-- descargado se incorpora sin modificar las consultas. Las revisiones de
+-- calidad se desglosan por anio (tomado del nombre del archivo).
 --
 -- union_by_name permite leer conjuntamente meses cuya lista u orden de
 -- columnas haya cambiado. Yellow y Green se consultan por separado porque
@@ -13,14 +17,14 @@
 SELECT
     'yellow' AS taxi_type,
     count(*) AS file_count
-FROM glob('data/raw/yellow/2026/*.parquet')
+FROM glob('data/raw/yellow/*/*.parquet')
 
 UNION ALL
 
 SELECT
     'green' AS taxi_type,
     count(*) AS file_count
-FROM glob('data/raw/green/2026/*.parquet')
+FROM glob('data/raw/green/*/*.parquet')
 ORDER BY taxi_type;
 
 -- ---------------------------------------------------------------------------
@@ -30,7 +34,7 @@ SELECT
     'yellow' AS taxi_type,
     count(*) AS record_count
 FROM read_parquet(
-    'data/raw/yellow/2026/*.parquet',
+    'data/raw/yellow/*/*.parquet',
     union_by_name = true
 )
 
@@ -40,7 +44,7 @@ SELECT
     'green' AS taxi_type,
     count(*) AS record_count
 FROM read_parquet(
-    'data/raw/green/2026/*.parquet',
+    'data/raw/green/*/*.parquet',
     union_by_name = true
 )
 ORDER BY taxi_type;
@@ -50,7 +54,7 @@ SELECT
     filename,
     count(*) AS record_count
 FROM read_parquet(
-    'data/raw/yellow/2026/*.parquet',
+    'data/raw/yellow/*/*.parquet',
     filename = true,
     union_by_name = true
 )
@@ -61,7 +65,7 @@ SELECT
     filename,
     count(*) AS record_count
 FROM read_parquet(
-    'data/raw/green/2026/*.parquet',
+    'data/raw/green/*/*.parquet',
     filename = true,
     union_by_name = true
 )
@@ -73,13 +77,13 @@ ORDER BY filename;
 -- ---------------------------------------------------------------------------
 DESCRIBE SELECT *
 FROM read_parquet(
-    'data/raw/yellow/2026/*.parquet',
+    'data/raw/yellow/*/*.parquet',
     union_by_name = true
 );
 
 DESCRIBE SELECT *
 FROM read_parquet(
-    'data/raw/green/2026/*.parquet',
+    'data/raw/green/*/*.parquet',
     union_by_name = true
 );
 
@@ -88,14 +92,14 @@ FROM read_parquet(
 -- ---------------------------------------------------------------------------
 SELECT *
 FROM read_parquet(
-    'data/raw/yellow/2026/*.parquet',
+    'data/raw/yellow/*/*.parquet',
     union_by_name = true
 )
 LIMIT 10;
 
 SELECT *
 FROM read_parquet(
-    'data/raw/green/2026/*.parquet',
+    'data/raw/green/*/*.parquet',
     union_by_name = true
 )
 LIMIT 10;
@@ -106,6 +110,7 @@ LIMIT 10;
 -- Los umbrales de atipicos son reglas de revision, no filtros definitivos.
 -- Se reportan conteos para no perder filas durante esta exploracion inicial.
 SELECT
+    regexp_extract(filename, 'tripdata_([0-9]{4})', 1) AS year,
     count(*) AS total_records,
     count_if(VendorID IS NULL) AS null_vendor_id,
     count_if(tpep_pickup_datetime IS NULL) AS null_pickup_datetime,
@@ -136,12 +141,16 @@ SELECT
     ) AS duration_over_24_hours,
     count_if(total_amount > 1000) AS total_amount_over_1000
 FROM read_parquet(
-    'data/raw/yellow/2026/*.parquet',
-    union_by_name = true
-);
+    'data/raw/yellow/*/*.parquet',
+    union_by_name = true,
+    filename = true
+)
+GROUP BY year
+ORDER BY year;
 
 -- Rangos observados para contextualizar los conteos anteriores.
 SELECT
+    regexp_extract(filename, 'tripdata_([0-9]{4})', 1) AS year,
     min(trip_distance) AS min_trip_distance,
     max(trip_distance) AS max_trip_distance,
     min(fare_amount) AS min_fare_amount,
@@ -159,14 +168,18 @@ SELECT
         tpep_dropoff_datetime
     )) AS max_duration_seconds
 FROM read_parquet(
-    'data/raw/yellow/2026/*.parquet',
-    union_by_name = true
-);
+    'data/raw/yellow/*/*.parquet',
+    union_by_name = true,
+    filename = true
+)
+GROUP BY year
+ORDER BY year;
 
 -- ---------------------------------------------------------------------------
 -- 6. Calidad inicial: Green Taxi
 -- ---------------------------------------------------------------------------
 SELECT
+    regexp_extract(filename, 'tripdata_([0-9]{4})', 1) AS year,
     count(*) AS total_records,
     count_if(VendorID IS NULL) AS null_vendor_id,
     count_if(lpep_pickup_datetime IS NULL) AS null_pickup_datetime,
@@ -197,11 +210,15 @@ SELECT
     ) AS duration_over_24_hours,
     count_if(total_amount > 1000) AS total_amount_over_1000
 FROM read_parquet(
-    'data/raw/green/2026/*.parquet',
-    union_by_name = true
-);
+    'data/raw/green/*/*.parquet',
+    union_by_name = true,
+    filename = true
+)
+GROUP BY year
+ORDER BY year;
 
 SELECT
+    regexp_extract(filename, 'tripdata_([0-9]{4})', 1) AS year,
     min(trip_distance) AS min_trip_distance,
     max(trip_distance) AS max_trip_distance,
     min(fare_amount) AS min_fare_amount,
@@ -219,6 +236,9 @@ SELECT
         lpep_dropoff_datetime
     )) AS max_duration_seconds
 FROM read_parquet(
-    'data/raw/green/2026/*.parquet',
-    union_by_name = true
-);
+    'data/raw/green/*/*.parquet',
+    union_by_name = true,
+    filename = true
+)
+GROUP BY year
+ORDER BY year;
