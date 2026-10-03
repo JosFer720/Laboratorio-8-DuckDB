@@ -1,0 +1,21 @@
+query_id,description,dataset,years,rows,parquet_seconds,table_seconds,difference_seconds,speedup,same_result
+materializacion,Costo unico de CREATE TABLE trips a partir de los Parquet,2024,1,41829938,,72.5475,,,
+q1_conteo,Conteo total de viajes (recorre una sola columna de metadatos),2024,1,41829938,0.0589,0.0025,0.0564,23.84,True
+q2_viajes_por_mes,"Viajes por tipo de taxi, anio y mes",2024,1,41829938,0.1468,0.1284,0.0184,1.14,True
+q3_promedios,"Distancia, tarifa y propina promedio por tipo de taxi (viajes validos)",2024,1,41829938,0.4308,0.2179,0.2129,1.98,True
+q4_actividad_por_hora,Viajes e ingreso total por hora del dia,2024,1,41829938,0.5623,0.0883,0.474,6.37,True
+q5_formas_de_pago,Viajes y propina promedio por forma de pago,2024,1,41829938,0.253,0.0544,0.1986,4.65,True
+q6_zonas_origen,Las 10 zonas de origen con mas viajes,2024,1,41829938,0.252,0.0562,0.1958,4.49,True
+q7_percentiles,Percentiles de la tarifa por tipo de taxi (viajes validos),2024,1,41829938,3.6791,2.8811,0.798,1.28,True
+q8_atipicos,Viajes atipicos: distancia > 100 millas o duracion invalida,2024,1,41829938,1.117,0.1808,0.9362,6.18,True
+q9_consulta_selectiva,Viajes yellow de enero con pago en efectivo y mas de 20 millas,2024,1,41829938,0.0939,0.0053,0.0886,17.64,True
+materializacion,Costo unico de CREATE TABLE trips a partir de los Parquet,2024+2026,2,71870407,,105.6872,,,
+q1_conteo,Conteo total de viajes (recorre una sola columna de metadatos),2024+2026,2,71870407,0.0952,0.0032,0.092,29.81,True
+q2_viajes_por_mes,"Viajes por tipo de taxi, anio y mes",2024+2026,2,71870407,0.1431,0.1658,-0.0227,0.86,True
+q3_promedios,"Distancia, tarifa y propina promedio por tipo de taxi (viajes validos)",2024+2026,2,71870407,0.9226,0.3494,0.5731,2.64,True
+q4_actividad_por_hora,Viajes e ingreso total por hora del dia,2024+2026,2,71870407,1.0078,0.2192,0.7886,4.6,True
+q5_formas_de_pago,Viajes y propina promedio por forma de pago,2024+2026,2,71870407,0.4763,0.096,0.3803,4.96,True
+q6_zonas_origen,Las 10 zonas de origen con mas viajes,2024+2026,2,71870407,0.4739,0.0963,0.3776,4.92,True
+q7_percentiles,Percentiles de la tarifa por tipo de taxi (viajes validos),2024+2026,2,71870407,5.4139,5.1988,0.2151,1.04,True
+q8_atipicos,Viajes atipicos: distancia > 100 millas o duracion invalida,2024+2026,2,71870407,1.9513,0.2552,1.6961,7.65,True
+q9_consulta_selectiva,Viajes yellow de enero con pago en efectivo y mas de 20 millas,2024+2026,2,71870407,0.1071,0.0086,0.0986,12.5,True
